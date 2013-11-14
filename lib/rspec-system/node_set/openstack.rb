@@ -68,7 +68,13 @@ module RSpecSystem
       end
     end
 
-    def teardown; end
+    def teardown
+      nodes.keys.each do |k|
+        server = RSpec.configuration.rs_storage[:nodes][k][:server]
+        log.info "Destroying server #{server.name}"
+        server.destroy
+      end
+    end
 
     def compute
       @compute || @compute = Fog::Compute.new({

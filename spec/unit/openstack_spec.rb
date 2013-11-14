@@ -341,4 +341,30 @@ describe RSpecSystem::NodeSet::Openstack do
       end
     end
   end
+
+  describe '#teardown' do
+    let(:servers) do
+      [
+        stub(name: 'server 1'),
+        stub(name: 'server 2')
+      ]
+    end
+
+    let(:rs_storage) do
+      {
+        nodes:
+        {
+          'main-test1' => {server: servers[0]},
+          'main-test2' => {server: servers[1]}
+        }
+      }
+    end
+
+    it 'should call #destroy on each server' do
+      servers[0].expects(:destroy)
+      servers[1].expects(:destroy)
+
+      subject.teardown
+    end
+  end
 end
