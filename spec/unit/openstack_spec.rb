@@ -17,7 +17,7 @@ describe RSpecSystem::NodeSet::Openstack do
   let(:custom_prefabs_path) { '' }
   let(:options) { { } }
   let(:api_key) { 'test-api_key' }
-  let(:node_timeout) { 120 }
+  let(:node_timeout) { '120' }
   let(:username) { 'test-username' }
   let(:image_name) { 'test-image_name' }
   let(:flavor_name) { 'test-flavor_name' }
@@ -67,8 +67,91 @@ describe RSpecSystem::NodeSet::Openstack do
     expect(RSpec.configuration.rs_storage).to eq rs_storage
   end
 
-  describe '#vmconf' do
-    subject { described_class.new(setname, config, custom_prefabs_path, options).vmconf }
+  describe '#node_conf' do
+    let(:node_name) { 'main-test1' }
+
+    subject do
+      config['nodes'][node_name]['options'] = node_options
+      described_class.new(setname, config, custom_prefabs_path, options).node_conf node_name
+    end
+
+    context 'given env conf variables' do
+      context 'given an image name override' do
+        let(:node_options) { { 'image_name' => 'other image name' } }
+
+        it 'should have new image name' do
+          expect(subject[:image_name]).to eq 'other image name'
+        end
+      end
+
+      context 'given a flavor name override' do
+        let(:node_options) { { 'flavor_name' => 'other flavor name' } }
+
+        it 'should have new flavor name' do
+          expect(subject[:flavor_name]).to eq 'other flavor name'
+        end
+      end
+
+      context 'given a network name override' do
+        let(:node_options) { { 'network_name' => 'other network name' } }
+
+        it 'should have new network name' do
+          expect(subject[:network_name]).to eq 'other network name'
+        end
+      end
+
+      context 'given a keypair_name override' do
+        let(:node_options) { { 'keypair_name' => 'other keypair name' } }
+
+        it 'should have new keypair naem' do
+          expect(subject[:keypair_name]).to eq 'other keypair name'
+        end
+      end
+
+      context 'given a node timeout' do
+        let(:node_options) { { 'node_timeout' => '60' } }
+
+        it 'should have new node timeout' do
+          expect(subject[:node_timeout]).to eq '60'
+        end
+      end
+
+      context 'given a username' do
+        let(:node_options) { { 'username' => 'bunk user' } }
+
+        it 'should still have env username' do
+          expect(subject[:username]).to eq username
+        end
+      end
+
+      context 'given an endpoint' do
+        let(:node_options) { { 'endpoint' => 'bunk endpoint' } }
+
+        it 'should still have env endpoint' do
+          expect(subject[:endpoint]).to eq endpoint
+        end
+      end
+
+      context 'given an api key' do
+        let(:node_options) { { 'api_key' => 'bunk api key' } }
+
+        it 'should still have env api key' do
+          expect(subject[:api_key]).to eq api_key
+        end
+      end
+
+      context 'given ssh keys' do
+        let(:node_options) { { 'ssh_keys' => 'bunk ssh keys' } }
+
+        it 'should still have env ssh keys' do
+          expect(subject[:ssh_keys]).to eq ssh_keys
+        end
+      end
+    end
+  end
+
+  describe '#env_conf' do
+    subject { described_class.new(setname, config, custom_prefabs_path, options).env_conf }
     context 'given env config variables' do
 
       it 'should read node_timeout from the environment' do
