@@ -11,13 +11,12 @@ module RSpecSystem
     STR_CONFIG = [
       :node_timeout,
       :username,
-      :flavor,
-      :image,
+      :flavor_name,
+      :image_name,
       :endpoint,
       :keypair_name,
-      :ssh_username,
       :network_name,
-      :private_key,
+      :ssh_keys,
       :api_key
     ]
 
@@ -39,7 +38,6 @@ module RSpecSystem
         }
         options[:nics] = [{'net_id' => nic.id}] if vmconf[:network_name]
         log.info "Launching openstack instance #{k}"
-        log.info "----------------------------"
         result = compute.servers.create options
         storage[:server] = result
       end
@@ -53,14 +51,14 @@ module RSpecSystem
           begin
             server.wait_for(5) { ready? }
             break
-          rescue ::Fog::Errors::TimeoutError, Errno::ENETUNREACH, Errno::EHOSTUNREACH
+          rescue ::Fog::Errors::TimeoutError
             raise if Time.new.to_i - before > vmconf[:node_timeout]
             log.info "Timeout connecting to instance, trying again..."
           end
         end
 
         chan = ssh_connect(:host => k, :user => 'root', :net_ssh_options => {
-          keys: [vmconf[:private_key]],
+          keys: vmconf[:ssh_keys].split(':'),
           host_name: server.addresses[vmconf[:network_name]].first['addr'],
           paranoid: false
         })
@@ -96,11 +94,11 @@ module RSpecSystem
     private
 
     def flavor
-      compute.flavors.find { |x| x.name == vmconf[:flavor] }
+      compute.flavors.find { |x| x.name == vmconf[:flavor_name] }
     end
 
     def image
-      compute.images.find { |x| x.name == vmconf[:image] }
+      compute.images.find { |x| x.name == vmconf[:image_name] }
     end
 
     def nic

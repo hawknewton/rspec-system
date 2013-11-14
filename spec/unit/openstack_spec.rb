@@ -25,20 +25,20 @@ describe RSpecSystem::NodeSet::Openstack do
   let(:keypair_name) { 'test-keypair_name' }
   let(:ssh_username) { 'test-ssh_username' }
   let(:network_name) { 'test-network_name' }
-  let(:private_key) { 'test-private_key' }
+  let(:ssh_keys) { 'test-ssh_key' }
 
   let(:env_vars) do
     {
       'RS_OPENSTACK_NODE_TIMEOUT' => node_timeout,
       'RS_OPENSTACK_USERNAME'     => username,
       'RS_OPENSTACK_API_KEY'      => api_key,
-      'RS_OPENSTACK_IMAGE'        => image_name,
-      'RS_OPENSTACK_FLAVOR'       => flavor_name,
+      'RS_OPENSTACK_IMAGE_NAME'   => image_name,
+      'RS_OPENSTACK_FLAVOR_NAME'  => flavor_name,
       'RS_OPENSTACK_ENDPOINT'     => endpoint,
       'RS_OPENSTACK_KEYPAIR_NAME' => keypair_name,
       'RS_OPENSTACK_SSH_USERNAME' => ssh_username,
       'RS_OPENSTACK_NETWORK_NAME' => network_name,
-      'RS_OPENSTACK_PRIVATE_KEY'  => private_key
+      'RS_OPENSTACK_SSH_KEYS'     => ssh_keys
     }
   end
 
@@ -80,11 +80,11 @@ describe RSpecSystem::NodeSet::Openstack do
       end
 
       it 'should read flavor from the environment' do
-        expect(subject[:flavor]).to eq flavor_name
+        expect(subject[:flavor_name]).to eq flavor_name
       end
 
       it 'should read image from the environment' do
-        expect(subject[:image]).to eq image_name
+        expect(subject[:image_name]).to eq image_name
       end
 
       it 'should read endpoint url from the environment' do
@@ -95,16 +95,12 @@ describe RSpecSystem::NodeSet::Openstack do
         expect(subject[:keypair_name]).to eq keypair_name
       end
 
-      it 'should read ssh username from the environment' do
-        expect(subject[:ssh_username]).to eq ssh_username
-      end
-
       it 'should read network name from the environment' do
         expect(subject[:network_name]).to eq network_name
       end
 
       it 'should read private key from the environment' do
-        expect(subject[:private_key]).to eq private_key
+        expect(subject[:ssh_keys]).to eq ssh_keys
       end
 
       it 'should read api key from the environment' do
@@ -323,7 +319,7 @@ describe RSpecSystem::NodeSet::Openstack do
 
       it 'should connect though ssh using the private key' do
         subject.expects(:ssh_connect).with do |options|
-          expect(options[:net_ssh_options][:keys]).to eq [private_key]
+          expect(options[:net_ssh_options][:keys]).to eq [ssh_keys]
         end
         subject.connect
       end
