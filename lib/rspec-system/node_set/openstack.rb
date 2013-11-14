@@ -28,24 +28,23 @@ module RSpecSystem
     end
 
     def launch
-      nodes.each do |k,v|
-        storage = RSpec.configuration.rs_storage[:nodes][k] ||= {}
+      each_node do |name, node, storage, conf|
         options = {
           flavor_ref: flavor.id,
           image_ref: image.id,
-          name: "#{k}-#{@now}",
-          key_name: vmconf[:keypair_name]
+          name: "#{name}-#{@now}",
+          key_name: conf[:keypair_name]
         }
         options[:nics] = [{'net_id' => nic.id}] if vmconf[:network_name]
-        log.info "Launching openstack instance #{k}"
+        log.info "Launching openstack instance #{name}"
         result = compute.servers.create options
         storage[:server] = result
       end
     end
 
     def connect
-      nodes.each do |k,v|
-        server = RSpec.configuration.rs_storage[:nodes][k][:server]
+      each_node do |name, node, storage, conf|
+        server = storage[:server]
         before = Time.new.to_i
         while true
           begin
@@ -57,18 +56,18 @@ module RSpecSystem
           end
         end
 
-        chan = ssh_connect(:host => k, :user => 'root', :net_ssh_options => {
-          keys: vmconf[:ssh_keys].split(':'),
-          host_name: server.addresses[vmconf[:network_name]].first['addr'],
+        chan = ssh_connect(:host => name, :user => 'root', :net_ssh_options => {
+          keys: conf[:ssh_keys].split(':'),
+          host_name: server.addresses[conf[:network_name]].first['addr'],
           paranoid: false
         })
-        RSpec.configuration.rs_storage[:nodes][k][:ssh] = chan
+        storage[:ssh] = chan
       end
     end
 
     def teardown
-      nodes.keys.each do |k|
-        server = RSpec.configuration.rs_storage[:nodes][k][:server]
+      each_node do |name, node, storage, conf|
+        server = storage[:server]
         log.info "Destroying server #{server.name}"
         server.destroy
       end
@@ -113,6 +112,13 @@ module RSpecSystem
       end
       conf[:node_timeout] = conf[:node_timeout].to_i unless conf[:node_timeout].nil?
       conf
+    end
+
+    def each_node(&blk)
+      nodes.each do |name, node|
+        storage = RSpec.configuration.rs_storage[:nodes][name] ||= {}
+        yield name, node, storage, vmconf
+      end
     end
   end
 end
