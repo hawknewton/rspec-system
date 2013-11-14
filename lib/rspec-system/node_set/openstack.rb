@@ -1,5 +1,7 @@
-require 'rspec-system/node_set/base'
+require 'net/ssh'
+require 'net/scp'
 require 'fog'
+require 'rspec-system/node_set/base'
 
 module RSpecSystem
   class NodeSet::Openstack < NodeSet::Base
@@ -37,13 +39,35 @@ module RSpecSystem
         }
         options[:nics] = [{'net_id' => nic.id}] if vmconf[:network_name]
         log.info "Launching openstack instance #{k}"
-        log.info "options: #{options.inspect}"
         log.info "----------------------------"
         result = compute.servers.create options
         storage[:server] = result
       end
     end
-    def connect; end
+
+    def connect
+      nodes.each do |k,v|
+        server = RSpec.configuration.rs_storage[:nodes][k][:server]
+        before = Time.new.to_i
+        while true
+          begin
+            server.wait_for(5) { ready? }
+            break
+          rescue ::Fog::Errors::TimeoutError, Errno::ENETUNREACH, Errno::EHOSTUNREACH
+            raise if Time.new.to_i - before > vmconf[:node_timeout]
+            log.info "Timeout connecting to instance, trying again..."
+          end
+        end
+
+        chan = ssh_connect(:host => k, :user => 'root', :net_ssh_options => {
+          keys: [vmconf[:private_key]],
+          host_name: server.addresses[vmconf[:network_name]].first['addr'],
+          paranoid: false
+        })
+        RSpec.configuration.rs_storage[:nodes][k][:ssh] = chan
+      end
+    end
+
     def teardown; end
 
     def compute
@@ -75,9 +99,6 @@ module RSpecSystem
 
     def nic
       network.networks.find { |x| x.name == vmconf[:network_name] }
-    end
-
-    def nics
     end
 
     def read_config

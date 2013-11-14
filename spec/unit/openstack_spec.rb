@@ -240,4 +240,105 @@ describe RSpecSystem::NodeSet::Openstack do
       expect(rs_storage[:nodes]['main-test1'][:server]).to equal create_returns
     end
   end
+
+  describe '#connect' do
+    let(:servers) do
+      [
+        stub(addresses: { 'test-network_name' => [{'addr' => 'address1'}]}),
+        stub(addresses: { 'test-network_name' => [{'addr' => 'address2'}]})
+      ]
+    end
+
+    let(:rs_storage) do
+      {
+        nodes:
+        {
+          'main-test1' => {},
+          'main-test2' => {}
+        }
+      }
+    end
+
+    before do
+      rs_storage[:nodes]['main-test1'][:server] = servers[0]
+      rs_storage[:nodes]['main-test2'][:server] = servers[1]
+
+      servers.each do |x|
+        x.stubs(:wait_for).returns true
+      end
+      subject.stubs(:ssh_connect)
+    end
+
+    it 'should call ready? for each server' do
+      servers[0].expects(:wait_for).returns true
+      servers[1].expects(:wait_for).returns true
+
+      subject.connect
+    end
+
+    it 'should retry if Fog throws a timeout' do
+      servers[0].expects(:wait_for).raises(::Fog::Errors::TimeoutError.new).then.returns true
+      subject.connect
+    end
+
+    context 'with node timeout = 1' do
+      let(:node_timeout) { 1 }
+      it 'should give up after more than 1 second' do
+        servers[0].stubs(:wait_for).with do
+          sleep 1.25
+          raise ::Fog::Errors::TimeoutError.new
+        end
+
+        expect {subject.connect}.to raise_error ::Fog::Errors::TimeoutError
+      end
+
+      it 'should retry after less than 1 second' do
+        first_time = true
+        called_twice = false
+        servers[0].stubs(:wait_for).with do
+          if first_time
+            first_time = false
+            raise ::Fog::Errors::TimeoutError.new
+          else
+            called_twice = true
+          end
+        end
+        subject.connect
+        expect(called_twice).to be_true
+      end
+
+      it 'should connect though ssh as root' do
+        subject.expects(:ssh_connect).with do |options|
+          expect(options[:user]).to eq 'root'
+        end
+        subject.connect
+      end
+
+      it 'should disable ssh paranoid' do
+        subject.expects(:ssh_connect).with do |options|
+          expect(options[:net_ssh_options][:paranoid]).to eq false
+        end
+        subject.connect
+      end
+
+      it 'should connect though ssh using the private key' do
+        subject.expects(:ssh_connect).with do |options|
+          expect(options[:net_ssh_options][:keys]).to eq [private_key]
+        end
+        subject.connect
+      end
+
+      it 'should connect through ssh to each node\'s address' do
+        subject.expects(:ssh_connect).with do |options|
+          if options[:host] == 'main-test1'
+            address = 'address1'
+          else
+            address = 'address2'
+          end
+          expect(options[:net_ssh_options][:host_name]).to eq address
+        end
+        subject.connect
+      end
+    end
+  end
 end
